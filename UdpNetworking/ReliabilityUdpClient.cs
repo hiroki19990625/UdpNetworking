@@ -1,31 +1,52 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using UdpNetworking.Utils;
+using UdpNetworking.Event;
+using UdpNetworking.Packet;
+using UdpNetworking.Packet.LowLevel;
 
 namespace UdpNetworking
 {
     public class ReliabilityUdpClient : IDisposable
     {
         private UdpClient _client;
+        private Action<ConnectionData> _connectionCallback;
+        private IPacketFactory _packetFactory = new PacketFactory();
+
         private Task _task;
         private CancellationTokenSource _tokenSource;
 
+        private Dictionary<IPEndPoint, ReliabilityUdpClientSession> _sessions =
+            new Dictionary<IPEndPoint, ReliabilityUdpClientSession>();
+
         public ClientState ClientState { get; private set; }
 
-        public ReliabilityUdpClient(IPEndPoint endPoint)
+        public ReliabilityUdpClient(IPEndPoint endPoint, Action<ConnectionData> callback,
+            Action<UdpClient> option = null, IPacketFactory factory = null)
         {
+            if (factory != null)
+                _packetFactory = factory;
+
+            _connectionCallback = callback;
             _client = new UdpClient(endPoint);
+            option?.Invoke(_client);
         }
 
-        public ReliabilityUdpClient(string hostname, ushort port)
+        public ReliabilityUdpClient(string hostname, ushort port, Action<ConnectionData> callback,
+            Action<UdpClient> option = null, IPacketFactory factory = null)
         {
+            if (factory != null)
+                _packetFactory = factory;
+
+            _connectionCallback = callback;
             _client = new UdpClient(hostname, port);
+            option?.Invoke(_client);
         }
 
-        public bool Connection(IPEndPoint endPoint, Action<ConnectionData> callback)
+        public async Task<bool> ConnectionAsync(IPEndPoint endPoint)
         {
             if (ClientState == ClientState.Initialized)
             {
@@ -33,12 +54,40 @@ namespace UdpNetworking
                 _task = Task.Factory.StartNew(Receive, _tokenSource.Token, TaskCreationOptions.LongRunning,
                     TaskScheduler.Default);
 
-                
+                int mtu = Global.MtuLevels[0] - 77;
+                if (await CheckMtuTimeouts(endPoint, mtu, 3))
+                    return true;
 
-                return true;
+                mtu = Global.MtuLevels[1] - 77;
+                if (await CheckMtuTimeouts(endPoint, mtu, 3))
+                    return true;
+
+                mtu = Global.MtuLevels[2] - 77;
+                if (await CheckMtuTimeouts(endPoint, mtu, 3))
+                    return true;
             }
 
             return false;
+        }
+
+        public void Send(IPEndPoint endPoint, LowLevelPacket packet)
+        {
+            byte[] buf = packet.Encode();
+            Console.WriteLine(buf.Length);
+            _client.Send(buf, buf.Length, endPoint);
+        }
+
+        public async Task SendAsync(IPEndPoint endPoint, LowLevelPacket packet)
+        {
+            byte[] buf = packet.Encode();
+            await _client.SendAsync(buf, buf.Length, endPoint);
+        }
+
+        public void Dispose()
+        {
+            _client?.Dispose();
+            _task?.Dispose();
+            _tokenSource?.Dispose();
         }
 
         private void Receive()
@@ -50,14 +99,45 @@ namespace UdpNetworking
                 _tokenSource.Token.ThrowIfCancellationRequested();
                 IPEndPoint endPoint = null;
                 byte[] buffer = _client.Receive(ref endPoint);
+                IPacket packet = _packetFactory.GetPacket(buffer[0]);
+                packet.Decode(buffer);
+
+                if (packet is ConnectionRequestPacket connectionRequestPacket)
+                {
+                    int mtu = connectionRequestPacket.Padding.Length + 77;
+                    Send(endPoint, new ConnectionEstablishmentPacket((ushort) mtu));
+                }
+                else if (packet is ConnectionEstablishmentPacket connectionEstablishmentPacket)
+                {
+                    if (_sessions.ContainsKey(endPoint))
+                        throw new InvalidPacketException("Now connected.");
+                    else
+                    {
+                        _sessions[endPoint] = new ReliabilityUdpClientSession(this);
+                        _connectionCallback?.Invoke(new ConnectionData());
+                    }
+                }
             }
         }
 
-        public void Dispose()
+        private async Task<bool> CheckMtu(IPEndPoint endPoint, int mtu)
         {
-            _client?.Dispose();
-            _task?.Dispose();
-            _tokenSource?.Dispose();
+            await SendAsync(endPoint, new ConnectionRequestPacket(DateTime.Now, new byte[mtu]));
+            await Task.Delay(1000);
+
+            if (_sessions.ContainsKey(endPoint))
+                return true;
+
+            return false;
+        }
+
+        private async Task<bool> CheckMtuTimeouts(IPEndPoint endPoint, int mtuSize, int count)
+        {
+            for (int i = 0; i < count; i++)
+                if (await CheckMtu(endPoint, mtuSize))
+                    return true;
+
+            return false;
         }
     }
 }

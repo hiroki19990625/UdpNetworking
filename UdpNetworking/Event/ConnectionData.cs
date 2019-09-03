@@ -1,4 +1,4 @@
-namespace UdpNetworking.Utils
+namespace UdpNetworking.Event
 {
     public class ConnectionData
     {
