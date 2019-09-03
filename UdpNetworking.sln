@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UdpNetworking", "UdpNetworking\UdpNetworking.csproj", "{99EDF7A6-6CA1-4059-AC96-4F03E99FBF8A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{99EDF7A6-6CA1-4059-AC96-4F03E99FBF8A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99EDF7A6-6CA1-4059-AC96-4F03E99FBF8A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99EDF7A6-6CA1-4059-AC96-4F03E99FBF8A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99EDF7A6-6CA1-4059-AC96-4F03E99FBF8A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
