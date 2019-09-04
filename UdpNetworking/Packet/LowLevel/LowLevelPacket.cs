@@ -5,7 +5,7 @@ namespace UdpNetworking.Packet.LowLevel
 {
     public abstract class LowLevelPacket : IPacket, IDisposable
     {
-        protected NetworkStream _networkStream;
+        protected NetworkStream _networkStream = new NetworkStream();
 
         public abstract byte PacketId { get; }
 

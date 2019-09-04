@@ -11,6 +11,7 @@ namespace UdpNetworking.Packet
         public PacketFactory()
         {
             Register(Global.ConnectionRequestPacket, () => new ConnectionRequestPacket());
+            Register(Global.ConnectionEstablishmentPacket, () => new ConnectionEstablishmentPacket());
         }
 
         public IPacket GetPacket(byte id)

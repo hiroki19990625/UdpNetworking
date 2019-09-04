@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Linq;
 using BinaryIO;
 
@@ -44,9 +43,19 @@ namespace UdpNetworking.Packet.LowLevel
 
         private void CheckMagic(byte[] buf)
         {
-            if (!(buf.Length == 8 &&
-                  ((IStructuralEquatable) buf).Equals(Global.Magic, StructuralComparisons.StructuralEqualityComparer)))
-                throw new InvalidPacketException("Magic dont match.");
+            var magic = Global.Magic;
+            if (buf.Length == 8 &&
+                buf[0] == magic[0] &&
+                buf[1] == magic[1] &&
+                buf[2] == magic[2] &&
+                buf[3] == magic[3] &&
+                buf[4] == magic[4] &&
+                buf[5] == magic[5] &&
+                buf[6] == magic[6] &&
+                buf[7] == magic[7])
+                return;
+
+            throw new InvalidPacketException("Magic dont match.");
         }
     }
 }

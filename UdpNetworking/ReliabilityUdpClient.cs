@@ -46,25 +46,37 @@ namespace UdpNetworking
             option?.Invoke(_client);
         }
 
-        public async Task<bool> ConnectionAsync(IPEndPoint endPoint)
+        public void Listen()
         {
             if (ClientState == ClientState.Initialized)
             {
                 _tokenSource = new CancellationTokenSource();
                 _task = Task.Factory.StartNew(Receive, _tokenSource.Token, TaskCreationOptions.LongRunning,
                     TaskScheduler.Default);
+            }
+        }
 
+        public async Task<bool> ConnectionAsync(IPEndPoint endPoint)
+        {
+            if (ClientState == ClientState.Listening)
+            {
                 int mtu = Global.MtuLevels[0] - 77;
                 if (await CheckMtuTimeouts(endPoint, mtu, 3))
                     return true;
+
+                Console.WriteLine($"[{endPoint}] Mtu fail {mtu}");
 
                 mtu = Global.MtuLevels[1] - 77;
                 if (await CheckMtuTimeouts(endPoint, mtu, 3))
                     return true;
 
+                Console.WriteLine($"[{endPoint}] Mtu fail {mtu}");
+
                 mtu = Global.MtuLevels[2] - 77;
                 if (await CheckMtuTimeouts(endPoint, mtu, 3))
                     return true;
+
+                Console.WriteLine($"[{endPoint}] Mtu fail {mtu}");
             }
 
             return false;
@@ -73,13 +85,14 @@ namespace UdpNetworking
         public void Send(IPEndPoint endPoint, LowLevelPacket packet)
         {
             byte[] buf = packet.Encode();
-            Console.WriteLine(buf.Length);
+            Console.WriteLine($"[{endPoint}] {buf.Length}");
             _client.Send(buf, buf.Length, endPoint);
         }
 
         public async Task SendAsync(IPEndPoint endPoint, LowLevelPacket packet)
         {
             byte[] buf = packet.Encode();
+            Console.WriteLine($"[{endPoint}] {buf.Length}");
             await _client.SendAsync(buf, buf.Length, endPoint);
         }
 
@@ -96,26 +109,33 @@ namespace UdpNetworking
 
             while (true)
             {
-                _tokenSource.Token.ThrowIfCancellationRequested();
-                IPEndPoint endPoint = null;
-                byte[] buffer = _client.Receive(ref endPoint);
-                IPacket packet = _packetFactory.GetPacket(buffer[0]);
-                packet.Decode(buffer);
+                try
+                {
+                    _tokenSource.Token.ThrowIfCancellationRequested();
+                    IPEndPoint endPoint = null;
+                    byte[] buffer = _client.Receive(ref endPoint);
+                    IPacket packet = _packetFactory.GetPacket(buffer[0]);
+                    packet.Decode(buffer);
 
-                if (packet is ConnectionRequestPacket connectionRequestPacket)
-                {
-                    int mtu = connectionRequestPacket.Padding.Length + 77;
-                    Send(endPoint, new ConnectionEstablishmentPacket((ushort) mtu));
-                }
-                else if (packet is ConnectionEstablishmentPacket connectionEstablishmentPacket)
-                {
-                    if (_sessions.ContainsKey(endPoint))
-                        throw new InvalidPacketException("Now connected.");
-                    else
+                    if (packet is ConnectionRequestPacket connectionRequestPacket)
                     {
+                        int mtu = connectionRequestPacket.Padding.Length + 77;
+                        Send(endPoint, new ConnectionEstablishmentPacket((ushort) mtu));
+                    }
+                    else if (packet is ConnectionEstablishmentPacket connectionEstablishmentPacket)
+                    {
+                        if (_sessions.ContainsKey(endPoint))
+                            throw new InvalidPacketException("Now connected.");
+
                         _sessions[endPoint] = new ReliabilityUdpClientSession(this);
                         _connectionCallback?.Invoke(new ConnectionData());
                     }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    Console.WriteLine("dead listener!");
+                    throw;
                 }
             }
         }
