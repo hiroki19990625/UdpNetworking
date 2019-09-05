@@ -7,7 +7,7 @@ using UdpNetworking.Event;
 
 namespace UdpNetworking.Tests
 {
-    public class ClientTexts
+    public class ClientTests
     {
         private ReliabilityUdpClient _client;
         private ReliabilityUdpClient _client2;
@@ -29,7 +29,7 @@ namespace UdpNetworking.Tests
 
         private void OnConnection(ConnectionData obj)
         {
-            Console.WriteLine($"Connect!");
+            Console.WriteLine($"Connect! " + obj.MtuSize);
         }
 
         private void Option(UdpClient obj)

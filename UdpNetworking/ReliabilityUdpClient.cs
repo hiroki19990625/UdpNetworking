@@ -128,14 +128,13 @@ namespace UdpNetworking
                             throw new InvalidPacketException("Now connected.");
 
                         _sessions[endPoint] = new ReliabilityUdpClientSession(this);
-                        _connectionCallback?.Invoke(new ConnectionData());
+                        _connectionCallback?.Invoke(new ConnectionData(endPoint,
+                            connectionEstablishmentPacket.MtuSize));
                     }
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e.Message);
-                    Console.WriteLine("dead listener!");
-                    throw;
+                    Console.WriteLine(e);
                 }
             }
         }
