@@ -12,6 +12,11 @@ namespace UdpNetworking.Packet
         {
             Register(Global.ConnectionRequestPacket, () => new ConnectionRequestPacket());
             Register(Global.ConnectionEstablishmentPacket, () => new ConnectionEstablishmentPacket());
+
+            Register(Global.DataPacket, () => new DataPacket());
+
+            Register(Global.AckPacket, () => new AckPacket());
+            Register(Global.NackPacket, () => new NackPacket());
         }
 
         public IPacket GetPacket(byte id)

@@ -14,6 +14,7 @@ namespace UdpNetworking
     {
         private UdpClient _client;
         private Action<ConnectionData> _connectionCallback;
+        private Action<DisconnectionData> _disconnectionCallback;
         private IPacketFactory _packetFactory = new PacketFactory();
 
         private Task _task;
@@ -82,6 +83,11 @@ namespace UdpNetworking
             return false;
         }
 
+        public void Disconnect(IPEndPoint endPoint)
+        {
+            _disconnectionCallback?.Invoke(new DisconnectionData());
+        }
+
         public void Send(IPEndPoint endPoint, LowLevelPacket packet)
         {
             byte[] buf = packet.Encode();
@@ -94,6 +100,11 @@ namespace UdpNetworking
             byte[] buf = packet.Encode();
             Console.WriteLine($"[{endPoint}] {buf.Length}");
             await _client.SendAsync(buf, buf.Length, endPoint);
+        }
+
+        public ReliabilityUdpClientSession GetSession(IPEndPoint endPoint)
+        {
+            return _sessions[endPoint];
         }
 
         public void Dispose()
@@ -121,15 +132,35 @@ namespace UdpNetworking
                     {
                         int mtu = connectionRequestPacket.Padding.Length + 77;
                         Send(endPoint, new ConnectionEstablishmentPacket((ushort) mtu));
+                        if (!_sessions.ContainsKey(endPoint))
+                        {
+                            _sessions[endPoint] = new ReliabilityUdpClientSession(endPoint, (ushort) mtu, this);
+                        }
                     }
                     else if (packet is ConnectionEstablishmentPacket connectionEstablishmentPacket)
                     {
                         if (_sessions.ContainsKey(endPoint))
                             throw new InvalidPacketException("Now connected.");
 
-                        _sessions[endPoint] = new ReliabilityUdpClientSession(this);
+                        _sessions[endPoint] =
+                            new ReliabilityUdpClientSession(endPoint, connectionEstablishmentPacket.MtuSize, this);
                         _connectionCallback?.Invoke(new ConnectionData(endPoint,
                             connectionEstablishmentPacket.MtuSize));
+                    }
+                    else if (packet is DataPacket dataPacket)
+                    {
+                        if (_sessions.ContainsKey(endPoint))
+                            _sessions[endPoint].OnReceive(dataPacket);
+                    }
+                    else if (packet is NackPacket nackPacket)
+                    {
+                        if (_sessions.ContainsKey(endPoint))
+                            _sessions[endPoint].OnNack(nackPacket);
+                    }
+                    else if (packet is AckPacket ackPacket)
+                    {
+                        if (_sessions.ContainsKey(endPoint))
+                            _sessions[endPoint].OnAck(ackPacket);
                     }
                 }
                 catch (Exception e)

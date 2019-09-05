@@ -27,5 +27,8 @@ namespace UdpNetworking.Packet
         public const int ConnectionEstablishmentPacket = 0x02;
 
         public const int DataPacket = 0x10;
+
+        public const int AckPacket = 0x80;
+        public const int NackPacket = 0x81;
     }
 }
