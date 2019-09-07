@@ -131,13 +131,13 @@ namespace UdpNetworking
                     if (packet is ConnectionRequestPacket connectionRequestPacket)
                     {
                         int mtu = connectionRequestPacket.Padding.Length + 77;
-                        Send(endPoint, new ConnectionEstablishmentPacket((ushort) mtu));
+                        Send(endPoint, new ConnectionResponsePacket((ushort) mtu));
                         if (!_sessions.ContainsKey(endPoint))
                         {
                             _sessions[endPoint] = new ReliabilityUdpClientSession(endPoint, (ushort) mtu, this);
                         }
                     }
-                    else if (packet is ConnectionEstablishmentPacket connectionEstablishmentPacket)
+                    else if (packet is ConnectionResponsePacket connectionEstablishmentPacket)
                     {
                         if (_sessions.ContainsKey(endPoint))
                             throw new InvalidPacketException("Now connected.");

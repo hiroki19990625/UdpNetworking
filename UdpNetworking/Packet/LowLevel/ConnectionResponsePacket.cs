@@ -2,17 +2,17 @@ using BinaryIO;
 
 namespace UdpNetworking.Packet.LowLevel
 {
-    public class ConnectionEstablishmentPacket : LowLevelPacket
+    public class ConnectionResponsePacket : LowLevelPacket
     {
-        public override byte PacketId { get; } = Global.ConnectionEstablishmentPacket;
+        public override byte PacketId { get; } = Global.ConnectionResponsePacket;
 
         public ushort MtuSize { get; private set; }
 
-        public ConnectionEstablishmentPacket()
+        public ConnectionResponsePacket()
         {
         }
 
-        public ConnectionEstablishmentPacket(ushort mtuSize)
+        public ConnectionResponsePacket(ushort mtuSize)
         {
             MtuSize = mtuSize;
         }

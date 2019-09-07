@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using UdpNetworking.Event;
+using UdpNetworking.Packet.HighLevel;
 
 namespace UdpNetworking.Tests
 {
@@ -15,7 +16,7 @@ namespace UdpNetworking.Tests
         [SetUp]
         public void Setup()
         {
-            _client = new ReliabilityUdpClient(new IPEndPoint(IPAddress.Any, 10001), OnConnection, Option);
+            _client = new ReliabilityUdpClient(new IPEndPoint(IPAddress.Any, 0), OnConnection, Option);
             _client.Listen();
             _client2 = new ReliabilityUdpClient(new IPEndPoint(IPAddress.Any, 10002), OnConnection, Option);
             _client2.Listen();
@@ -30,6 +31,8 @@ namespace UdpNetworking.Tests
         private void OnConnection(ConnectionData obj)
         {
             Console.WriteLine($"Connect! " + obj.MtuSize);
+
+            _client.GetSession(obj.EndPoint).SendPacket(new CustomDataPacket(new byte[10000]));
         }
 
         private void Option(UdpClient obj)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UdpNetworking.Packet.HighLevel;
 using UdpNetworking.Packet.LowLevel;
 
 namespace UdpNetworking.Packet
@@ -11,9 +12,13 @@ namespace UdpNetworking.Packet
         public PacketFactory()
         {
             Register(Global.ConnectionRequestPacket, () => new ConnectionRequestPacket());
-            Register(Global.ConnectionEstablishmentPacket, () => new ConnectionEstablishmentPacket());
+            Register(Global.ConnectionResponsePacket, () => new ConnectionResponsePacket());
 
             Register(Global.DataPacket, () => new DataPacket());
+
+            Register(Global.ConnectionEstablishmentPacket, () => new ConnectionEstablishmentPacket());
+
+            Register(Global.CustomDataPacket, () => new CustomDataPacket());
 
             Register(Global.AckPacket, () => new AckPacket());
             Register(Global.NackPacket, () => new NackPacket());
