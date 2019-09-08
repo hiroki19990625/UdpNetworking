@@ -38,7 +38,7 @@ namespace UdpNetworking.Packet.LowLevel
             SequenceId = _networkStream.ReadUInt(ByteOrder.Little);
 
             int len = _networkStream.ReadUShort(ByteOrder.Little);
-            _networkStream.ReadBytes(len);
+            Data = _networkStream.ReadBytes(len);
         }
     }
 }

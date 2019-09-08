@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UdpNetworking.Event;
 using UdpNetworking.Packet;
+using UdpNetworking.Packet.HighLevel;
 using UdpNetworking.Packet.LowLevel;
 
 namespace UdpNetworking
@@ -107,6 +108,11 @@ namespace UdpNetworking
             return _sessions[endPoint];
         }
 
+        public IPacketFactory GetPacketFactory()
+        {
+            return _packetFactory;
+        }
+
         public void Dispose()
         {
             _client?.Dispose();
@@ -146,6 +152,8 @@ namespace UdpNetworking
                             new ReliabilityUdpClientSession(endPoint, connectionEstablishmentPacket.MtuSize, this);
                         _connectionCallback?.Invoke(new ConnectionData(endPoint,
                             connectionEstablishmentPacket.MtuSize));
+                        
+                        _sessions[endPoint].SendPacket(new ConnectionEstablishmentPacket());
                     }
                     else if (packet is DataPacket dataPacket)
                     {

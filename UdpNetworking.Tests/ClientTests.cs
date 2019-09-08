@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using UdpNetworking.Event;
@@ -26,6 +27,7 @@ namespace UdpNetworking.Tests
         public async Task Test1()
         {
             bool r = await _client.ConnectionAsync(new IPEndPoint(IPAddress.Loopback, 10002));
+            Thread.Sleep(2000);
         }
 
         private void OnConnection(ConnectionData obj)

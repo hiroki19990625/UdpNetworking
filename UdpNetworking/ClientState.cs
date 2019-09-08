@@ -4,8 +4,6 @@ namespace UdpNetworking
     {
         Initialized,
         Listening,
-        ConnectionWait,
-        Connected,
         Error,
         Closed
     }

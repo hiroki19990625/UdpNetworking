@@ -15,6 +15,10 @@ namespace UdpNetworking.Packet.ConnectedPacket
 
         public byte[] Payload { get; private set; }
 
+        public EncapsulatedPacket()
+        {
+        }
+
         public EncapsulatedPacket(Reliability reliability, uint messageId, byte[] payload)
         {
             Reliability = reliability;
