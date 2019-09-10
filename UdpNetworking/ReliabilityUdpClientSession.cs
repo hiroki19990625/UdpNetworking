@@ -28,11 +28,14 @@ namespace UdpNetworking
 
         private Action<ReceiveCustomDataPacketData> _receiveCustomDataPacketCallback;
 
-        public ReliabilityUdpClientSession(IPEndPoint endPoint, ushort mtuSize, ReliabilityUdpClient client)
+        public ReliabilityUdpClientSession(IPEndPoint endPoint, ushort mtuSize, ReliabilityUdpClient client,
+            Action<ReceiveCustomDataPacketData> callback)
         {
             EndPoint = endPoint;
             MtuSize = mtuSize;
             _client = client;
+
+            _receiveCustomDataPacketCallback = callback;
         }
 
         public void OnReceive(DataPacket dataPacket)
@@ -120,7 +123,7 @@ namespace UdpNetworking
             }
             else if (packet is CustomDataPacket customDataPacket)
             {
-                _receiveCustomDataPacketCallback?.Invoke(new ReceiveCustomDataPacketData(customDataPacket));
+                _receiveCustomDataPacketCallback?.Invoke(new ReceiveCustomDataPacketData(this, customDataPacket));
             }
         }
     }

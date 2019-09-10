@@ -17,10 +17,16 @@ namespace UdpNetworking.Tests
         [SetUp]
         public void Setup()
         {
-            _client = new ReliabilityUdpClient(new IPEndPoint(IPAddress.Any, 0), OnConnection, Option);
+            _client = new ReliabilityUdpClient(new IPEndPoint(IPAddress.Any, 0), OnConnection, OnCustomPacket, Option);
             _client.Listen();
-            _client2 = new ReliabilityUdpClient(new IPEndPoint(IPAddress.Any, 10002), OnConnection, Option);
+            _client2 = new ReliabilityUdpClient(new IPEndPoint(IPAddress.Any, 10002), OnConnection, OnCustomPacket,
+                Option);
             _client2.Listen();
+        }
+
+        private void OnCustomPacket(ReceiveCustomDataPacketData obj)
+        {
+            Console.WriteLine("Handle Custom: " + obj.CustomDataPacket.Payload.Length);
         }
 
         [Test]
@@ -28,13 +34,14 @@ namespace UdpNetworking.Tests
         {
             bool r = await _client.ConnectionAsync(new IPEndPoint(IPAddress.Loopback, 10002));
             Thread.Sleep(2000);
+
+            _client.GetSession(new IPEndPoint(IPAddress.Loopback, 10002))
+                .SendPacket(new CustomDataPacket(new byte[10000]));
         }
 
         private void OnConnection(ConnectionData obj)
         {
             Console.WriteLine($"Connect! " + obj.MtuSize);
-
-            _client.GetSession(obj.EndPoint).SendPacket(new CustomDataPacket(new byte[10000]));
         }
 
         private void Option(UdpClient obj)

@@ -16,6 +16,7 @@ namespace UdpNetworking
         private UdpClient _client;
         private Action<ConnectionData> _connectionCallback;
         private Action<DisconnectionData> _disconnectionCallback;
+        private Action<ReceiveCustomDataPacketData> _receiveCustomDataPacketCallback;
         private IPacketFactory _packetFactory = new PacketFactory();
 
         private Task _task;
@@ -27,23 +28,27 @@ namespace UdpNetworking
         public ClientState ClientState { get; private set; }
 
         public ReliabilityUdpClient(IPEndPoint endPoint, Action<ConnectionData> callback,
+            Action<ReceiveCustomDataPacketData> callback2,
             Action<UdpClient> option = null, IPacketFactory factory = null)
         {
             if (factory != null)
                 _packetFactory = factory;
 
             _connectionCallback = callback;
+            _receiveCustomDataPacketCallback = callback2;
             _client = new UdpClient(endPoint);
             option?.Invoke(_client);
         }
 
         public ReliabilityUdpClient(string hostname, ushort port, Action<ConnectionData> callback,
+            Action<ReceiveCustomDataPacketData> callback2,
             Action<UdpClient> option = null, IPacketFactory factory = null)
         {
             if (factory != null)
                 _packetFactory = factory;
 
             _connectionCallback = callback;
+            _receiveCustomDataPacketCallback = callback2;
             _client = new UdpClient(hostname, port);
             option?.Invoke(_client);
         }
@@ -140,7 +145,7 @@ namespace UdpNetworking
                         Send(endPoint, new ConnectionResponsePacket((ushort) mtu));
                         if (!_sessions.ContainsKey(endPoint))
                         {
-                            _sessions[endPoint] = new ReliabilityUdpClientSession(endPoint, (ushort) mtu, this);
+                            _sessions[endPoint] = new ReliabilityUdpClientSession(endPoint, (ushort) mtu, this, _receiveCustomDataPacketCallback);
                         }
                     }
                     else if (packet is ConnectionResponsePacket connectionEstablishmentPacket)
@@ -149,10 +154,10 @@ namespace UdpNetworking
                             throw new InvalidPacketException("Now connected.");
 
                         _sessions[endPoint] =
-                            new ReliabilityUdpClientSession(endPoint, connectionEstablishmentPacket.MtuSize, this);
+                            new ReliabilityUdpClientSession(endPoint, connectionEstablishmentPacket.MtuSize, this, _receiveCustomDataPacketCallback);
                         _connectionCallback?.Invoke(new ConnectionData(endPoint,
                             connectionEstablishmentPacket.MtuSize));
-                        
+
                         _sessions[endPoint].SendPacket(new ConnectionEstablishmentPacket());
                     }
                     else if (packet is DataPacket dataPacket)
