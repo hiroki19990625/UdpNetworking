@@ -14,11 +14,11 @@ namespace UdpNetworking
 {
     public class ReliabilityUdpClient : IDisposable
     {
-        private UdpClient _client;
-        private Action<ConnectionData> _connectionCallback;
+        private readonly UdpClient _client;
+        private readonly Action<ConnectionData> _connectionCallback;
         private Action<DisconnectionData> _disconnectionCallback;
-        private Action<ReceiveCustomDataPacketData> _receiveCustomDataPacketCallback;
-        private IPacketFactory _packetFactory = new PacketFactory();
+        private readonly Action<ReceiveCustomDataPacketData> _receiveCustomDataPacketCallback;
+        private readonly IPacketFactory _packetFactory = new PacketFactory();
 
         private Task _task;
         private CancellationTokenSource _tokenSource;
@@ -26,7 +26,7 @@ namespace UdpNetworking
         private Task _updateTask;
         private CancellationTokenSource _tokenSource2;
 
-        private Dictionary<IPEndPoint, ReliabilityUdpClientSession> _sessions =
+        private readonly Dictionary<IPEndPoint, ReliabilityUdpClientSession> _sessions =
             new Dictionary<IPEndPoint, ReliabilityUdpClientSession>();
 
         public ClientState ClientState { get; private set; }
@@ -73,26 +73,25 @@ namespace UdpNetworking
 
         public async Task<bool> ConnectionAsync(IPEndPoint endPoint)
         {
-            if (ClientState == ClientState.Listening)
-            {
-                int mtu = Global.MtuLevels[0] - 77;
-                if (await CheckMtuTimeouts(endPoint, mtu, 3))
-                    return true;
+            if (ClientState != ClientState.Listening) return false;
 
-                Console.WriteLine($"[{endPoint}] Mtu fail {mtu}");
+            int mtu = Global.MtuLevels[0] - 77;
+            if (await CheckMtuTimeouts(endPoint, mtu, 3))
+                return true;
 
-                mtu = Global.MtuLevels[1] - 77;
-                if (await CheckMtuTimeouts(endPoint, mtu, 3))
-                    return true;
+            Console.WriteLine($"[{endPoint}] Mtu fail {mtu}");
 
-                Console.WriteLine($"[{endPoint}] Mtu fail {mtu}");
+            mtu = Global.MtuLevels[1] - 77;
+            if (await CheckMtuTimeouts(endPoint, mtu, 3))
+                return true;
 
-                mtu = Global.MtuLevels[2] - 77;
-                if (await CheckMtuTimeouts(endPoint, mtu, 3))
-                    return true;
+            Console.WriteLine($"[{endPoint}] Mtu fail {mtu}");
 
-                Console.WriteLine($"[{endPoint}] Mtu fail {mtu}");
-            }
+            mtu = Global.MtuLevels[2] - 77;
+            if (await CheckMtuTimeouts(endPoint, mtu, 3))
+                return true;
+
+            Console.WriteLine($"[{endPoint}] Mtu fail {mtu}");
 
             return false;
         }

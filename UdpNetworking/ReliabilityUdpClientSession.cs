@@ -13,7 +13,7 @@ namespace UdpNetworking
 {
     public class ReliabilityUdpClientSession
     {
-        private ReliabilityUdpClient _client;
+        private readonly ReliabilityUdpClient _client;
 
         public IPEndPoint EndPoint { get; }
         public ushort MtuSize { get; }
@@ -32,7 +32,7 @@ namespace UdpNetworking
         public uint SendMessageId { get; private set; }
         public ushort SendSplitId { get; private set; }
 
-        private Action<ReceiveCustomDataPacketData> _receiveCustomDataPacketCallback;
+        private readonly Action<ReceiveCustomDataPacketData> _receiveCustomDataPacketCallback;
 
         public ReliabilityUdpClientSession(IPEndPoint endPoint, ushort mtuSize, ReliabilityUdpClient client,
             Action<ReceiveCustomDataPacketData> callback)
@@ -103,11 +103,6 @@ namespace UdpNetworking
             }
         }
 
-        private int Comparison(EncapsulatedPacket x, EncapsulatedPacket y)
-        {
-            return x.SplitIndex.CompareTo(y.SplitIndex);
-        }
-
         public void OnAck(AckPacket ackPacket)
         {
             for (int i = 0; i < ackPacket.SequenceIds.Count; i++)
@@ -156,8 +151,7 @@ namespace UdpNetworking
 
         public void SendDataPacket(byte[] buf)
         {
-            DataPacket dataPacket = new DataPacket(SendSequenceId++, buf);
-            dataPacket.Timestamp = DateTime.Now;
+            DataPacket dataPacket = new DataPacket(SendSequenceId++, buf) {Timestamp = DateTime.Now};
             ReSendPackets.TryAdd(dataPacket.SequenceId, dataPacket);
 
             _client.Send(EndPoint, dataPacket);
@@ -168,14 +162,20 @@ namespace UdpNetworking
             byte[] buf = encapsulatedPacket.Payload;
             IPacket packet = _client.GetPacketFactory().GetPacket(buf[0]);
             packet.Decode(buf);
-            if (packet is ConnectionEstablishmentPacket)
+            switch (packet)
             {
-                Console.WriteLine($"[{EndPoint}] ConnectionEstablishment!");
+                case ConnectionEstablishmentPacket _:
+                    Console.WriteLine($"[{EndPoint}] ConnectionEstablishment!");
+                    break;
+                case CustomDataPacket customDataPacket:
+                    _receiveCustomDataPacketCallback?.Invoke(new ReceiveCustomDataPacketData(this, customDataPacket));
+                    break;
             }
-            else if (packet is CustomDataPacket customDataPacket)
-            {
-                _receiveCustomDataPacketCallback?.Invoke(new ReceiveCustomDataPacketData(this, customDataPacket));
-            }
+        }
+
+        private int Comparison(EncapsulatedPacket x, EncapsulatedPacket y)
+        {
+            return x.SplitIndex.CompareTo(y.SplitIndex);
         }
     }
 }
