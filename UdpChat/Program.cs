@@ -62,6 +62,7 @@ namespace UdpChat
             if (b == 1)
             {
                 BinaryStream stream = new BinaryStream(buf);
+                stream.ReadByte();
                 Console.WriteLine(stream.ReadStringUtf8());
                 stream.Close();
             }
@@ -74,6 +75,7 @@ namespace UdpChat
             if (b == 1)
             {
                 BinaryStream stream = new BinaryStream(buf);
+                stream.ReadByte();
                 Console.WriteLine(stream.ReadStringUtf8());
                 stream.Close();
             }
