@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -116,6 +117,11 @@ namespace UdpNetworking
         public ReliabilityUdpClientSession GetSession(IPEndPoint endPoint)
         {
             return _sessions[endPoint];
+        }
+
+        public ReliabilityUdpClientSession[] GetSessions()
+        {
+            return _sessions.Values.ToArray();
         }
 
         public IPacketFactory GetPacketFactory()

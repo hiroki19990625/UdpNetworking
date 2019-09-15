@@ -2,6 +2,12 @@
 
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
+        <Title>UdpNetworking</Title>
+        <Copyright>hiroki19990625</Copyright>
+        <PackageProjectUrl>https://github.com/hiroki19990625/UdpNetworking</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/hiroki19990625/UdpNetworking.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>network</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
