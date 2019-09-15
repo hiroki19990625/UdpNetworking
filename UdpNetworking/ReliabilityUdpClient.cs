@@ -22,6 +22,9 @@ namespace UdpNetworking
         private Task _task;
         private CancellationTokenSource _tokenSource;
 
+        private Task _updateTask;
+        private CancellationTokenSource _tokenSource2;
+
         private Dictionary<IPEndPoint, ReliabilityUdpClientSession> _sessions =
             new Dictionary<IPEndPoint, ReliabilityUdpClientSession>();
 
@@ -60,6 +63,10 @@ namespace UdpNetworking
                 _tokenSource = new CancellationTokenSource();
                 _task = Task.Factory.StartNew(Receive, _tokenSource.Token, TaskCreationOptions.LongRunning,
                     TaskScheduler.Default);
+
+                _tokenSource2 = new CancellationTokenSource();
+                _updateTask = Task.Factory.StartNew(UpdateClient, _tokenSource2.Token, TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default);
             }
         }
 
@@ -97,14 +104,12 @@ namespace UdpNetworking
         public void Send(IPEndPoint endPoint, LowLevelPacket packet)
         {
             byte[] buf = packet.Encode();
-            Console.WriteLine($"[{endPoint}] {buf.Length}");
             _client.Send(buf, buf.Length, endPoint);
         }
 
         public async Task SendAsync(IPEndPoint endPoint, LowLevelPacket packet)
         {
             byte[] buf = packet.Encode();
-            Console.WriteLine($"[{endPoint}] {buf.Length}");
             await _client.SendAsync(buf, buf.Length, endPoint);
         }
 
@@ -122,7 +127,10 @@ namespace UdpNetworking
         {
             _client?.Dispose();
             _task?.Dispose();
+            _tokenSource?.Cancel();
             _tokenSource?.Dispose();
+            _tokenSource2?.Cancel();
+            _tokenSource2?.Dispose();
         }
 
         private void Receive()
@@ -145,7 +153,8 @@ namespace UdpNetworking
                         Send(endPoint, new ConnectionResponsePacket((ushort) mtu));
                         if (!_sessions.ContainsKey(endPoint))
                         {
-                            _sessions[endPoint] = new ReliabilityUdpClientSession(endPoint, (ushort) mtu, this, _receiveCustomDataPacketCallback);
+                            _sessions[endPoint] = new ReliabilityUdpClientSession(endPoint, (ushort) mtu, this,
+                                _receiveCustomDataPacketCallback);
                         }
                     }
                     else if (packet is ConnectionResponsePacket connectionEstablishmentPacket)
@@ -154,7 +163,8 @@ namespace UdpNetworking
                             throw new InvalidPacketException("Now connected.");
 
                         _sessions[endPoint] =
-                            new ReliabilityUdpClientSession(endPoint, connectionEstablishmentPacket.MtuSize, this, _receiveCustomDataPacketCallback);
+                            new ReliabilityUdpClientSession(endPoint, connectionEstablishmentPacket.MtuSize, this,
+                                _receiveCustomDataPacketCallback);
                         _connectionCallback?.Invoke(new ConnectionData(endPoint,
                             connectionEstablishmentPacket.MtuSize));
 
@@ -183,15 +193,34 @@ namespace UdpNetworking
             }
         }
 
+        private void UpdateClient()
+        {
+            while (true)
+            {
+                try
+                {
+                    _tokenSource.Token.ThrowIfCancellationRequested();
+
+                    foreach (KeyValuePair<IPEndPoint, ReliabilityUdpClientSession> session in _sessions)
+                    {
+                        session.Value.Update();
+                    }
+
+                    Thread.Sleep(1);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+            }
+        }
+
         private async Task<bool> CheckMtu(IPEndPoint endPoint, int mtu)
         {
             await SendAsync(endPoint, new ConnectionRequestPacket(DateTime.Now, new byte[mtu]));
-            await Task.Delay(1000);
+            await Task.Delay(300);
 
-            if (_sessions.ContainsKey(endPoint))
-                return true;
-
-            return false;
+            return _sessions.ContainsKey(endPoint);
         }
 
         private async Task<bool> CheckMtuTimeouts(IPEndPoint endPoint, int mtuSize, int count)

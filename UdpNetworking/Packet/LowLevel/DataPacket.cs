@@ -1,3 +1,4 @@
+using System;
 using BinaryIO;
 
 namespace UdpNetworking.Packet.LowLevel
@@ -8,6 +9,8 @@ namespace UdpNetworking.Packet.LowLevel
 
         public uint SequenceId { get; private set; }
         public byte[] Data { get; private set; }
+
+        public DateTime Timestamp { get; internal set; }
 
         public DataPacket()
         {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using BinaryIO;
@@ -17,11 +18,16 @@ namespace UdpNetworking
         public IPEndPoint EndPoint { get; }
         public ushort MtuSize { get; }
 
-        public Dictionary<uint, DataPacket> ReSendPackets = new Dictionary<uint, DataPacket>();
+        public ConcurrentDictionary<uint, DataPacket> ReSendPackets = new ConcurrentDictionary<uint, DataPacket>();
 
         public Dictionary<ushort, List<EncapsulatedPacket>> SplitsPackets =
             new Dictionary<ushort, List<EncapsulatedPacket>>();
 
+        public List<uint> MessageWindow = new List<uint>();
+
+        public Dictionary<uint, EncapsulatedPacket> OrderMessages = new Dictionary<uint, EncapsulatedPacket>();
+
+        public uint ReceiveSequenceId { get; private set; }
         public uint SendSequenceId { get; private set; }
         public uint SendMessageId { get; private set; }
         public ushort SendSplitId { get; private set; }
@@ -43,6 +49,19 @@ namespace UdpNetworking
             AckPacket packet = new AckPacket(new[] {dataPacket.SequenceId});
             _client.Send(EndPoint, packet);
 
+            if (dataPacket.SequenceId > ReceiveSequenceId)
+            {
+                uint seq = dataPacket.SequenceId - ReceiveSequenceId;
+                for (uint i = 0; i < seq; i++)
+                {
+                    NackPacket nackPacket = new NackPacket(new[] {dataPacket.SequenceId - i - 1});
+                    _client.Send(EndPoint, nackPacket);
+                }
+            }
+
+            if (dataPacket.SequenceId >= ReceiveSequenceId)
+                ReceiveSequenceId = dataPacket.SequenceId + 1;
+
             EncapsulatedPacket encapsulatedPacket = new EncapsulatedPacket();
             encapsulatedPacket.Decode(dataPacket.Data);
 
@@ -56,11 +75,14 @@ namespace UdpNetworking
 
                 if (SplitsPackets[encapsulatedPacket.SplitId].Count == encapsulatedPacket.LastSplitIndex + 1)
                 {
+                    SplitsPackets[encapsulatedPacket.SplitId].Sort(Comparison);
                     BinaryStream stream = new BinaryStream();
                     foreach (var splitsPacket in SplitsPackets[encapsulatedPacket.SplitId])
                     {
                         stream.WriteBytes(splitsPacket.Payload);
                     }
+
+                    SplitsPackets.Remove(encapsulatedPacket.SplitId);
 
                     encapsulatedPacket = new EncapsulatedPacket(encapsulatedPacket.Reliability,
                         encapsulatedPacket.MessageId, stream.GetBuffer());
@@ -69,7 +91,21 @@ namespace UdpNetworking
                     return;
             }
 
-            OnEncapsulatedPacket(encapsulatedPacket);
+            if (!MessageWindow.Contains(encapsulatedPacket.MessageId))
+            {
+                if (MessageWindow.Count >= 50)
+                {
+                    MessageWindow.RemoveAt(0);
+                }
+
+                MessageWindow.Add(encapsulatedPacket.MessageId);
+                OnEncapsulatedPacket(encapsulatedPacket);
+            }
+        }
+
+        private int Comparison(EncapsulatedPacket x, EncapsulatedPacket y)
+        {
+            return x.SplitIndex.CompareTo(y.SplitIndex);
         }
 
         public void OnAck(AckPacket ackPacket)
@@ -78,8 +114,7 @@ namespace UdpNetworking
             {
                 if (ReSendPackets.ContainsKey(ackPacket.SequenceIds[i]))
                 {
-                    ReSendPackets.Remove(ackPacket.SequenceIds[i]);
-                    Console.WriteLine($"[{EndPoint}] Ack: {ackPacket.SequenceIds[i]}");
+                    ReSendPackets.TryRemove(ackPacket.SequenceIds[i], out _);
                 }
             }
         }
@@ -95,10 +130,24 @@ namespace UdpNetworking
             }
         }
 
-        public void SendPacket(HighLevelPacket packet)
+        public void Update()
+        {
+            foreach (KeyValuePair<uint, DataPacket> dataPacket in ReSendPackets)
+            {
+                TimeSpan date = DateTime.Now - dataPacket.Value.Timestamp;
+                if (date.TotalMilliseconds >= 1000)
+                {
+                    Console.WriteLine("Resend");
+                    SendDataPacket(dataPacket.Value.Data);
+                    ReSendPackets.TryRemove(dataPacket.Key, out _);
+                }
+            }
+        }
+
+        public void SendPacket(HighLevelPacket packet, Reliability reliability = Reliability.Reliable)
         {
             byte[] buf = packet.Encode();
-            EncapsulatedPacket encapsulatedPacket = new EncapsulatedPacket(Reliability.Reliable, SendMessageId++, buf);
+            EncapsulatedPacket encapsulatedPacket = new EncapsulatedPacket(reliability, SendMessageId++, buf);
             EncapsulatedPacket[] packets = encapsulatedPacket.GetSplitEncapsulatedPackets(SendSplitId++, MtuSize);
 
             for (int i = 0; i < packets.Length; i++)
@@ -108,7 +157,9 @@ namespace UdpNetworking
         public void SendDataPacket(byte[] buf)
         {
             DataPacket dataPacket = new DataPacket(SendSequenceId++, buf);
-            ReSendPackets.Add(dataPacket.SequenceId, dataPacket);
+            dataPacket.Timestamp = DateTime.Now;
+            ReSendPackets.TryAdd(dataPacket.SequenceId, dataPacket);
+
             _client.Send(EndPoint, dataPacket);
         }
 
